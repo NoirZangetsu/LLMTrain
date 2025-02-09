@@ -23,7 +23,6 @@ except ImportError:
 from huggingface_hub import login
 import pandas as pd
 
-# GPU ayarları için
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 def create_prompt(system_text, user_text, assistant_text):
@@ -39,7 +38,7 @@ def train_model(
     base_model_name,
     dataset_choice,
     dataset_path,
-    local_format,  # "json" veya "csv"
+    local_format,  
     dataset_repo,
     dataset_privacy,
     max_length,
@@ -59,7 +58,7 @@ def train_model(
     if model_type == "private" and hf_token:
         login(token=hf_token)
 
-    # Dataset yükleme
+    
     progress(0.1, desc="Loading dataset...")
     if dataset_choice == "local":
         raw_datasets = load_dataset(local_format, data_files={"train": dataset_path})
@@ -75,11 +74,10 @@ def train_model(
             split_dataset = raw_datasets["train"].train_test_split(test_size=0.1, shuffle=True, seed=42)
             raw_datasets = DatasetDict({"train": split_dataset["train"], "validation": split_dataset["test"]})
 
-    # Cihazı belirleyelim: GPU varsa "cuda", yoksa "cpu"
+    
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     progress(0.2, desc="Loading model...")
-    # Model yükleme ve quantization/precision seçenekleri
     if quantization_choice:
         if bit_choice == "4":
             model = AutoModelForCausalLM.from_pretrained(
@@ -116,10 +114,8 @@ def train_model(
         )
         model.config.use_cache = False
 
-    # Modeli mevcut cihaza taşıyalım (GPU varsa "cuda")
     model = model.to(device)
 
-    # LoRA ayarları
     lora_config = LoraConfig(r=4, lora_alpha=16, lora_dropout=0.1, bias="none", task_type="CAUSAL_LM")
     model = get_peft_model(model, lora_config)
     model.enable_input_require_grads()
@@ -135,7 +131,6 @@ def train_model(
         tokenizer.pad_token = tokenizer.eos_token
 
     def preprocess_function(examples):
-        # Esnek sütun erişimi: Girilen sütun adını bulamazsa case-insensitive arama yapar.
         def get_column(examples, col_name):
             if col_name in examples:
                 return examples[col_name]
@@ -281,7 +276,6 @@ def explore_dataset(
 
     info = f"Dataset Columns: {dataset.column_names}\n"
     info += f"Total Examples: {len(dataset)}\n\n"
-    # İlk 5 örneği pandas DataFrame olarak alıp stringe çeviriyoruz.
     sample = dataset.select(range(min(5, len(dataset))))
     try:
         sample_df = sample.to_pandas()
